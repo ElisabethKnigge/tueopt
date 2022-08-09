@@ -1,0 +1,10 @@
+name: tueopt
+channels:
+  - defaults
+dependencies:
+  - pip=21.2.4
+  - python=3.8.5
+  - pip:
+    - rasterio
+    - numpy
+    - matplotlib
