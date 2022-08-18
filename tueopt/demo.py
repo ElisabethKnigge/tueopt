@@ -47,7 +47,15 @@ def download_data() -> str:
 
 
 def elevations(data_file: str, *coords: Iterable[Tuple[float, float]]) -> List[int]:
-    """Yield elevations for the requested coordinates using the data file."""
+    """Yield elevations for the requested coordinates using the data file.
+
+    Args:
+        data_file: Path to the TIF file that contains the elevation model.
+        coords: Pairs of (x, y) coordinates
+
+    Returns:
+        List of elevations for the supplied coordinates.
+    """
     with rasterio.open(data_file) as src:
         vals = src.sample(coords)
         return [val[0] for val in vals]
