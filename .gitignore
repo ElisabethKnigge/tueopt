@@ -1,5 +1,7 @@
 /srtm_germany_dsm.tif
 /srtm_germany_dsm.zip
+tueopt/srtm_germany_dsm.tif
+tueopt/srtm_germany_dsm.zip
 **__pycache__
 *.egg-info
 .eggs
