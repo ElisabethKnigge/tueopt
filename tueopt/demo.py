@@ -34,6 +34,7 @@ def download_data() -> str:
     else:
         zip_source = f"https://opendem.info/downloads/{filename}.zip"
         zip_target = os.path.join(HEREDIR, f"{filename}.zip")
+        zip_target_dir = os.path.dirname(zip_target)
 
         # download
         print("Downloading data")
@@ -41,7 +42,7 @@ def download_data() -> str:
 
         # extract
         print("Extracting data")
-        shutil.unpack_archive(zip_target)
+        shutil.unpack_archive(zip_target, extract_dir=zip_target_dir)
 
     return tif_filename
 
