@@ -1,13 +1,13 @@
-from typing import Tuple, List, Iterable
-import rasterio
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib import cm
-
 import os
-import urllib.request
 import shutil
+import urllib.request
+from typing import Iterable, List, Tuple
+
+import matplotlib.pyplot as plt
+import numpy as np
+import rasterio
 import scipy
+from matplotlib import cm
 
 
 def download_data() -> str:
@@ -45,11 +45,13 @@ def download_data() -> str:
 
     return tif_filename
 
+
 def elevations(data_file: str, *coords: Iterable[Tuple[float, float]]) -> List[int]:
     """Yield elevations for the requested coordinates using the data file."""
     with rasterio.open(data_file) as src:
         vals = src.sample(coords)
         return [val[0] for val in vals]
+
 
 src_file = download_data()
 
@@ -87,36 +89,45 @@ f = scipy.interpolate.RectBivariateSpline(xs, ys, zs.T)
 # print(mpi_elevation)
 
 
-f_grad_x = f.partial_derivative(1,0)
-f_grad_y = f.partial_derivative(0,1)
+f_grad_x = f.partial_derivative(1, 0)
+f_grad_y = f.partial_derivative(0, 1)
 
-def f_grad(x,y):
-    return np.array([f_grad_x(x,y)[0][0], f_grad_y(x,y)[0][0]])
+
+def f_grad(x, y):
+    return np.array([f_grad_x(x, y)[0][0], f_grad_y(x, y)[0][0]])
+
 
 print(f_grad(*mpi))
 
 
 fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
 
-from mpl_toolkits.mplot3d import Axes3D, art3d
 from matplotlib.patches import Circle, Ellipse
+from mpl_toolkits.mplot3d import Axes3D, art3d
 
-def add_point(ax, x, y, z, fc = None, ec = None, radius = 0.005):
+
+def add_point(ax, x, y, z, fc=None, ec=None, radius=0.005):
     """https://stackoverflow.com/a/65115447"""
 
     xy_len, z_len = ax.get_figure().get_size_inches()
-    axis_length = [x[1] - x[0] for x in [ax.get_xbound(), ax.get_ybound(), ax.get_zbound()]]
-    axis_rotation =  {'z': ((x, y, z), axis_length[1]/axis_length[0]),
-                        'y': ((x, z, y), axis_length[2]/axis_length[0]*xy_len/z_len),
-                        'x': ((y, z, x), axis_length[2]/axis_length[1]*xy_len/z_len)}
+    axis_length = [
+        x[1] - x[0] for x in [ax.get_xbound(), ax.get_ybound(), ax.get_zbound()]
+    ]
+    axis_rotation = {
+        "z": ((x, y, z), axis_length[1] / axis_length[0]),
+        "y": ((x, z, y), axis_length[2] / axis_length[0] * xy_len / z_len),
+        "x": ((y, z, x), axis_length[2] / axis_length[1] * xy_len / z_len),
+    }
     for a, ((x0, y0, z0), ratio) in axis_rotation.items():
-        p = Ellipse((x0, y0), width = radius, height = radius*ratio, fc=fc, ec=ec)
+        p = Ellipse((x0, y0), width=radius, height=radius * ratio, fc=fc, ec=ec)
         ax.add_patch(p)
         art3d.pathpatch_2d_to_3d(p, z=z0, zdir=a)
 
+
 xs_mesh, ys_mesh = np.meshgrid(xs, ys)
-surf = ax.plot_surface(xs_mesh, ys_mesh, zs, cmap=cm.coolwarm,
-                       linewidth=0, antialiased=True)
+surf = ax.plot_surface(
+    xs_mesh, ys_mesh, zs, cmap=cm.coolwarm, linewidth=0, antialiased=True
+)
 add_point(ax, *mpi, mpi_elevation, radius=0.001)
 fig.colorbar(surf)
 plt.show()
