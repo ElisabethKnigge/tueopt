@@ -8,6 +8,8 @@ import numpy as np
 import rasterio
 import scipy
 from matplotlib import cm
+from matplotlib.patches import Ellipse  # Circle
+from mpl_toolkits.mplot3d import art3d  # Axes3D
 
 
 def download_data() -> str:
@@ -102,8 +104,6 @@ print(f_grad(*mpi))
 
 fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
 
-from matplotlib.patches import Circle, Ellipse
-from mpl_toolkits.mplot3d import Axes3D, art3d
 
 
 def add_point(ax, x, y, z, fc=None, ec=None, radius=0.005):
