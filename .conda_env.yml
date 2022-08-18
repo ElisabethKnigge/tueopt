@@ -2,9 +2,8 @@ name: tueopt
 channels:
   - defaults
 dependencies:
-  - pip=21.2.4
-  - python=3.8.5
+  - python=3.8.10
   - pip:
-    - rasterio
-    - numpy
-    - matplotlib
+    - -e .
+    - -e .[lint]
+    - -e .[test]
