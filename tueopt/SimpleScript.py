@@ -149,6 +149,52 @@ def Gradient(p1, p2):
     return gx, gy
 
 
+class GD:
+    """Gradient descent algorithm."""
+
+    def __init__(self, x, y, step_length, momentum=0.0):
+        """Set up the gradient descent method.
+
+        Args:
+            x: First variable to optimize over.
+            y: Second variable to optimize over.
+            step_length: Length of the GD update (no momentum).
+            momentum: Momentum factor.
+        """
+        self._x = x
+        self._y = y
+        self._change_x = [0.0]
+        self._change_y = [0.0]
+        self._step_length = step_length
+        self._momentum = momentum
+
+    def step(self, grad_x, grad_y):
+        """Perform one iteration of gradient descent.
+
+        Args:
+            grad_x: Gradient w.r.t. x.
+            grad_y: Gradient w.r.t. y.
+        """
+        norm = math.sqrt(grad_x**2 + grad_y**2)
+        scaling_factor = self._step_length / norm
+
+        last_change_x = self._change_x[-1]
+        self._change_x.append(scaling_factor * grad_x + self._momentum * last_change_x)
+        last_change_y = self._change_y[-1]
+        self._change_y.append(scaling_factor * grad_y + self._momentum * last_change_y)
+
+        self._x = self._x - self._change_x[-1]
+        self._y = self._y - self._change_y[-1]
+
+    def get_x(self):
+        """Return x variable."""
+        return self._x
+
+    def get_y(self):
+        """Return y variable."""
+        return self._y
+
+
 def so(x, y, f, alpha, beta, momentum):
     """Berechnet Gradient für x, y.
 
@@ -163,30 +209,23 @@ def so(x, y, f, alpha, beta, momentum):
         opt_liste: Liste, mit Punkten die zu Minimum führen.
     """
     p = f
-    i = 1
     z = p(x, y)[0]
     opt_liste = [[x], [y], [z]]
-    a_list = [alpha]
-    change_x = [0]
-    change_y = [0]
+
+    optimizer = GD(x, y, alpha, momentum=momentum)
 
     for i in range(beta):
         y_grad = p(x, y, dx=0, dy=1)
         x_grad = p(x, y, dx=1, dy=0)
-        norm = alpha / math.sqrt(x_grad**2 + y_grad**2)
-        # x = x - x_grad * norm
-        # y = y - y_grad * norm
 
-        # mit momentum
-        change_x.append(norm * x_grad + momentum * change_x[i - 1])
-        change_y.append(norm * y_grad + momentum * change_y[i - 1])
-        x = x - change_x[i]
-        y = y - change_y[i]
+        optimizer.step(x_grad, y_grad)
+
+        x = optimizer.get_x()
+        y = optimizer.get_y()
 
         opt_liste[0].append(x)
         opt_liste[1].append(y)
         opt_liste[2].append(p(x, y)[0])
-        a_list.append(alpha)
 
         if (x >= xmax or x <= xmin) or (y >= ymax or y <= ymin):
             print("Punkt nich in Fläche duh, Iterations: ", i)
