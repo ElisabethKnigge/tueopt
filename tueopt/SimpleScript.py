@@ -195,6 +195,36 @@ class GD:
         return self._y
 
 
+def train(optimizer, f, beta):
+    """TODO"""
+    p = f
+    x = optimizer.get_x()
+    y = optimizer.get_y()
+    z = p(x, y)[0]
+    opt_liste = [[x], [y], [z]]
+
+    for i in range(beta):
+        y_grad = p(x, y, dx=0, dy=1)
+        x_grad = p(x, y, dx=1, dy=0)
+
+        optimizer.step(x_grad, y_grad)
+
+        x = optimizer.get_x()
+        y = optimizer.get_y()
+
+        opt_liste[0].append(x)
+        opt_liste[1].append(y)
+        opt_liste[2].append(p(x, y)[0])
+
+        if (x >= xmax or x <= xmin) or (y >= ymax or y <= ymin):
+            print("Punkt nich in Fläche duh, Iterations: ", i)
+            break
+
+        print(i, "von", beta)
+
+    return opt_liste
+
+
 def so(x, y, f, alpha, beta, momentum):
     """Berechnet Gradient für x, y.
 
@@ -387,7 +417,7 @@ def DPlots(x, y, f, p1, p2):
 
     xmesh, ymesh = np.meshgrid(X, Y)
 
-    opt1 = so(x, y, p, 0.0015, 10_000, 0.6)
+    opt1 = train(GD(x, y, 0.0015, 0.6), p, 10_000)
     opt2 = so(x, y, p, 0.0015, 10_000, 0.0)  # kein Momentum
     opt3 = so(x, y, p, 0.0015, 10_000, 0.5)
     opt4 = so(x, y, p, 0.0015, 10_000, 0.8)
