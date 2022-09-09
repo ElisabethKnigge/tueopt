@@ -79,11 +79,13 @@ y_mpi = 48.5341389
 mpi_elevation = elevations(src_file, mpi)[0]
 mvl6 = (9.0515339, 48.5382876)
 mvl6_elevation = elevations(src_file, mvl6)[0]
+x_ub = 9.03460309417676
+y_ub = 48.534037122559994
 
 ymin, xmin = 48.54293574822647, 9.033688803346264
 ymax, xmax = 48.51642677684213, 9.092274838312923
 
-steps = 50
+steps = 100
 xs = np.linspace(xmin, xmax, steps)
 ys = np.linspace(ymin, ymax, steps)
 zs = np.zeros((steps, steps))
@@ -123,10 +125,7 @@ def grad(f, x, y, alpha, eps_x=1e-3, eps_y=1e-3):
     return grad_wert * norm
 
 
-print(np.min(zf))
-
-
-def opt(x, y):
+def opt(x, y, alpha):
     """Findet theoretisch das lokale Minimum von f.
 
     Praktisch funktioniert das nur manchmal lol.
@@ -137,7 +136,6 @@ def opt(x, y):
     Returns:
         Liste mit durchlaufenen Punkten.
     """
-    # min_val = np.min(zf)
     z = f(x, y)
     i = f(x, y)
     j = 0
@@ -146,8 +144,8 @@ def opt(x, y):
     opt_vec_z = [z]
     opt_liste = []
 
-    while i >= 0:  # or z[0] >= min_val:
-        x_grad, y_grad = -grad(f, x, y, 0.0005)
+    while i >= 0:
+        x_grad, y_grad = -grad(f, x, y, alpha)
         z_wert = f(x, y)
         n_x = x + x_grad[0]
         n_y = y + y_grad[0]
@@ -160,8 +158,54 @@ def opt(x, y):
         opt_liste = [opt_vec_x] + [opt_vec_y] + [opt_vec_z]
         z = n_z
         x, y = n_x, n_y
-
     return opt_liste
+
+
+def opt_for(x, y, alpha, beta):
+    """Findet theoretisch das lokale Minimum von f in beta Schritten.
+
+    Praktisch funktioniert das nur manchmal lol.
+
+    Args:
+        x, y: x bzw. y-Wert von Startpunkt
+        alpha: Normalisierungsfaktor
+        beta: Schritte
+
+    Returns:
+        Liste mit durchlaufenen Punkten.
+    """
+    z = f(x, y)
+    j = 0
+    opt_vec_x = [x]
+    opt_vec_y = [y]
+    opt_vec_z = [z]
+
+    plot_vec_x = [x]
+    plot_vec_y = [y]
+    plot_vec_z = [z]
+
+    # opt_for_liste = []
+    plot_liste = []
+
+    for j in range(beta):
+        x_grad, y_grad = -grad(f, x, y, alpha)
+        n_x = x + x_grad[0]
+        n_y = y + y_grad[0]
+        n_z = elevations(src_file, (n_x, n_y))
+        j = j + 1
+        opt_vec_x = opt_vec_x + [n_x]
+        opt_vec_y = opt_vec_y + [n_y]
+        opt_vec_z = opt_vec_z + [n_z[0]]
+        # opt_for_liste = [opt_vec_x] + [opt_vec_y] + [opt_vec_z]
+        x, y = n_x, n_y
+
+    for k in range(1000):
+        int_val = int((beta / 1000) * k)
+        plot_vec_x = plot_vec_x + [opt_vec_x[int_val]]
+        plot_vec_y = plot_vec_y + [opt_vec_y[int_val]]
+        plot_vec_z = plot_vec_z + [opt_vec_z[int_val]]
+        plot_liste = [plot_vec_x] + [plot_vec_y] + [plot_vec_z]
+    return plot_liste
 
 
 fig = plt.figure()
@@ -172,7 +216,7 @@ ax = fig.add_subplot(121, projection="3d")
 surf = ax.plot_surface(
     xs_mesh,
     ys_mesh,
-    zf,
+    zs,
     cmap=cm.viridis,
     linewidth=0,
     alpha=0.75,
@@ -205,13 +249,32 @@ surf2 = ax2.plot_surface(
 color = "purple"
 
 ax2.scatter(x_mpi, y_mpi, mpi_elevation, color=color)
-grad_des = opt(x_mpi, y_mpi)
+grad_des = opt(x_mpi, y_mpi, 0.00005)
 ax2.plot3D(
     grad_des[0],
     grad_des[1],
     grad_des[2],
     linewidth=2,
     color=color,
+)
+
+grad_des2 = opt_for(x_ub, y_ub, 0.003, 10000)
+print(len(grad_des2), len(grad_des2[0]))
+ax.plot3D(
+    grad_des2[0],
+    grad_des2[1],
+    grad_des2[2],
+    linewidth=2,
+    color="red",
+)
+
+grad_des3 = opt(x_mpi, y_mpi, 0.0007)
+ax2.plot3D(
+    grad_des3[0],
+    grad_des3[1],
+    grad_des3[2],
+    linewidth=2,
+    color="blue",
 )
 
 # ax2.contour(grad_des[0], grad_des[1], f(grad_des[0], grad_des[1]), cmap=cm.coolwarm)
