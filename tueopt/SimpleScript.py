@@ -1,19 +1,23 @@
 """Surface, interpolation and streamplot of gradients between 2 points in Germany."""
-import math
 import os
 import shutil
 import urllib.request
 from typing import Iterable, List, Tuple
 
 import matplotlib.pyplot as plt
+import mayavi.mlab as mlab
 import numpy as np
 import rasterio
 from matplotlib import cm
 from scipy import interpolate
 
-yz, xz = (51.314342229660475, 12.413751897373517)
-p1 = (51.37851084786834, 12.281719132563873)
-p2 = (51.30740546223145, 12.437053610317154)
+# Leipzig, Völkerschlachtdenkmal
+# yz, xz = (51.314342229660475, 12.413751897373517)
+# p1 = (51.37851084786834, 12.281719132563873)
+# p2 = (51.30740546223145, 12.437053610317154)
+yz, xz = (48.54113160303172, 9.057397243195163)
+p1 = (48.549728737303596, 9.008769029986254)
+p2 = (48.49221113163337, 9.10188580410421)
 
 
 def download_data() -> str:
@@ -106,11 +110,7 @@ def surface(Punkt1, Punkt2, Dichte):
 
 
 f_steps = 50
-X, Y, Z = surface(
-    (51.37851084786834, 12.281719132563873),
-    (51.30740546223145, 12.437053610317154),
-    f_steps,
-)
+X, Y, Z = surface(p1, p2, f_steps)
 f = interpolate.interp2d(X, Y, Z, kind="cubic")
 
 p_steps = 10
@@ -163,8 +163,10 @@ class GD:
         """
         self._x = x
         self._y = y
-        self._change_x = [0.0]
-        self._change_y = [0.0]
+        # self._change_x = [0.0]
+        # self._change_y = [0.0]
+        self._chx = 0
+        self._chy = 0
         self._step_length = step_length
         self._momentum = momentum
 
@@ -175,16 +177,70 @@ class GD:
             grad_x: Gradient w.r.t. x.
             grad_y: Gradient w.r.t. y.
         """
-        norm = math.sqrt(grad_x**2 + grad_y**2)
-        scaling_factor = self._step_length / norm
+        # grad dings siehe train func
+        self._chx = self._momentum * self._chx + grad_x
+        self._chy = self._momentum * self._chy + grad_y
 
-        last_change_x = self._change_x[-1]
-        self._change_x.append(scaling_factor * grad_x + self._momentum * last_change_x)
-        last_change_y = self._change_y[-1]
-        self._change_y.append(scaling_factor * grad_y + self._momentum * last_change_y)
+        self._x = self._x - self._step_length * self._chx
+        self._y = self._y - self._step_length * self._chy
 
-        self._x = self._x - self._change_x[-1]
-        self._y = self._y - self._change_y[-1]
+        # last_change_x = self._change_x[-1]
+        # self._change_x.append(
+        #     self._step_length * grad_x + self._momentum * last_change_x
+        # )
+        # last_change_y = self._change_y[-1]
+        # self._change_y.append(
+        #     self._step_length * grad_y + self._momentum * last_change_y
+        # )
+
+        # self._x = self._x - self._change_x[-1]
+        # self._y = self._y - self._change_y[-1]
+
+    def get_x(self):
+        """Return x variable."""
+        return self._x
+
+    def get_y(self):
+        """Return y variable."""
+        return self._y
+
+
+class ADAM:
+    """ADAM algorithm."""
+
+    def __init__(self, x, y, step_length, beta1, beta2):
+        """Set up the ADAM method.
+
+        Args:
+            x: First variable to optimize over.
+            y: Second variable to optimize over.
+            step_length: Length of the GD update (no momentum).
+            beta1, beta2: good question.
+        """
+        self._x = x
+        self._y = y
+        self.sl = step_length
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.mx, self.my, self.vx, self.vy = 0, 0, 0, 0
+
+    def step(self, grad_x, grad_y):
+        """Perform one iteration of ADAM.
+
+        Args:
+            grad_x: Gradient w.r.t. x.
+            grad_y: Gradient w.r.t. y.
+        """
+        epsilon = 1e-09
+
+        self.mx = self.beta1 * self.mx + (1 - self.beta1) * grad_x
+        self.my = self.beta1 * self.my + (1 - self.beta1) * grad_y
+
+        self.vx = self.beta2 * self.vx + (1 - self.beta2) * grad_x**2
+        self.vy = self.beta2 * self.vy + (1 - self.beta2) * grad_y**2
+
+        self._x = self._x - self.sl * self.mx / (np.sqrt(self.vx) + epsilon)
+        self._y = self._y - self.sl * self.my / (np.sqrt(self.vy) + epsilon)
 
     def get_x(self):
         """Return x variable."""
@@ -196,7 +252,16 @@ class GD:
 
 
 def train(optimizer, f, beta):
-    """TODO"""
+    """Train func.
+
+    Args:
+        optimizer: GD or ADAM
+        f: function
+        beta: iterations
+
+    Returns:
+        opt_liste: list with all steps.
+    """
     p = f
     x = optimizer.get_x()
     y = optimizer.get_y()
@@ -212,8 +277,8 @@ def train(optimizer, f, beta):
         x = optimizer.get_x()
         y = optimizer.get_y()
 
-        opt_liste[0].append(x)
-        opt_liste[1].append(y)
+        opt_liste[0].append(x[0])
+        opt_liste[1].append(y[0])
         opt_liste[2].append(p(x, y)[0])
 
         if (x >= xmax or x <= xmin) or (y >= ymax or y <= ymin):
@@ -266,55 +331,6 @@ def so(x, y, f, alpha, beta, momentum):
     return opt_liste
 
 
-def adam(x, y, f, steps, alpha, beta1, beta2):
-    """Adam-Optimizer.
-
-    Args:
-        :)
-
-    Returns:
-        adam_list: Liste mit allen Punkten die Adam bis zum convergen durchläuft.
-    """
-    p = f
-    z = p(x, y)
-    adam_list = [[x], [y], [z]]
-    mx = [0]
-    my = [0]
-    vx = [0]
-    vy = [0]
-    upx = [0]
-    upy = [0]
-    eps = 10e-8
-    t = 0
-
-    while t in range(steps):  # noch andere bedingung?
-        t += 1
-        y_grad = p(x, y, dx=0, dy=1)
-        x_grad = p(x, y, dx=1, dy=0)
-        mx.append(beta1 * mx[t - 1] + (1 - beta1) * x_grad)
-        my.append(beta1 * my[t - 1] + (1 - beta1) * y_grad)
-        vx.append(beta1 * vx[t - 1] + (1 - beta1) * x_grad**2)
-        vy.append(beta1 * vy[t - 1] + (1 - beta1) * y_grad**2)
-        norm = alpha / math.sqrt(x_grad**2 + y_grad**2)
-        upx.append(norm * mx[t] / math.sqrt(vx[t] + eps))
-        upy.append(norm * my[t] / math.sqrt(vy[t] + eps))
-
-        x = x - upx[t]
-        y = y - upy[t]
-
-        adam_list[0].append(x)
-        adam_list[1].append(y)
-        adam_list[2].append(f(x, y)[0])
-
-        if (x >= xmax or x <= xmin) or (y >= ymax or y <= ymin):
-            print("Punkt nich in Fläche duh, Iterations: ", t)
-            break
-
-        print(t, "von", steps)
-
-    return adam_list
-
-
 def Plots(x, y, f, p1, p2):
     """True surface, interpolated surface and vectorfield of the gradients.
 
@@ -326,7 +342,6 @@ def Plots(x, y, f, p1, p2):
     """
     X, Y, Z = surface(p1, p2, 50)
     A, B, C = surface(p1, p2, 10)
-    ZB = RectBivariateSpline(p1, p2, 10)
     ZP = p(X, Y)
 
     sur = plt.figure()
@@ -335,30 +350,33 @@ def Plots(x, y, f, p1, p2):
     xmesh, ymesh = np.meshgrid(X, Y)
     amesh, bmesh = np.meshgrid(A, B)
 
-    ax = sur.add_subplot(131, projection="3d")
-    ax.plot_surface(xmesh, ymesh, Z, cmap=cm.cividis, antialiased=True)
-    ax2 = sur.add_subplot(132, projection="3d")
-    ax2.plot_surface(xmesh, ymesh, ZP, cmap=cm.PiYG, antialiased=True, alpha=0.8)
-    axb = sur.add_subplot(133, projection="3d")
-    axb.plot_surface(xmesh, ymesh, ZB, cmap=cm.cividis, antialiased=True, alpha=0.8)
+    # ax = sur.add_subplot(131, projection="3d")
+    # ax.plot_surface(xmesh, ymesh, Z, cmap=cm.cividis, antialiased=True)
+    ax2 = sur.add_subplot(
+        projection="3d"
+    )  # wenn rest auch angezeigt werden soll, 132 einfügen
+    ax2.set_axis_off()
+    ax2.plot_surface(
+        xmesh, ymesh, ZP, cmap=cm.Greys, antialiased=True, alpha=0.7, zorder=3
+    )
+    # axb = sur.add_subplot(133, projection="3d")
+    # axb.plot_surface(xmesh, ymesh, ZB, cmap=cm.cividis, antialiased=True, alpha=0.8)
 
-    opt = so(x, y, p, 0.0015, 1_000, 0.6)  # sehr gute val=0.000015
-    # step = 10_000
-    # ex = opt[0][step]
-    # ey = opt[1][step]
-    # ez = opt[2][step]
+    opt = train(ADAM(x, y, 0.00002, 0.8, 0.99), p, 10_000)
+    opt2 = train(GD(x, y, 0.000000009, 0.9), p, 10_000)
+    dx, dy, dz = opt2[0], opt2[1], opt2[2]
 
-    ax2.scatter(opt[0], opt[1], opt[2], linewidth=1, c=opt[2], cmap=cm.hsv, s=0.89)
+    ax2.plot3D(opt[0], opt[1], opt[2], linewidth=2, color="darkorange")
+    ax2.plot3D(dx, dy, dz, linewidth=2, color="purple")
+    ax2.contourf(X, Y, Z, zdir="z", offset=270, cmap=cm.magma, alpha=0.67)
+
     # ax.plot3D(opt2[0], opt2[1], opt2[2], linewidth=2, color="slateblue", label="MPI")
-    X, Y, Z = surface(p1, p2, 50)
-    f = interpolate.interp2d(X, Y, Z, kind="cubic")
-    ax2.scatter(xz, yz, f(xz, yz), color="magenta", s=0.8)
-    # ax2.scatter(ex, ey, ez, color="magenta", s=7)
 
     gx = p(XP, YP, dx=1, dy=0)
     gy = p(XP, YP, dx=0, dy=1)
 
     ax3 = arr.add_subplot()
+    ax3.set_axis_off()
     bmesh_in = np.array(bmesh)
     bmesh_in = bmesh_in[np.argsort(bmesh_in[:, 0])]
     ax3.streamplot(
@@ -367,25 +385,17 @@ def Plots(x, y, f, p1, p2):
         -gx,
         -gy,
         density=2,
-        linewidth=C * 0.01,
+        linewidth=C * 0.003,
         arrowstyle="fancy",
         color=C,
         cmap="plasma",
     )
 
-    return ax, ax2, ax3
+    return ax2, ax3
 
 
-# ax, ax2, ax3 = Plots(
-#     xz,
-#     yz,
-#     f,
-#     (51.37851084786834, 12.281719132563873),
-#     (51.30740546223145, 12.437053610317154),
-# )
+ax2, ax3 = Plots(xz, yz, f, p1, p2)
 
-
-# plt.show()
 
 # class GD:
 
@@ -417,12 +427,12 @@ def DPlots(x, y, f, p1, p2):
 
     xmesh, ymesh = np.meshgrid(X, Y)
 
-    opt1 = train(GD(x, y, 0.0015, 0.6), p, 10_000)
-    opt2 = so(x, y, p, 0.0015, 10_000, 0.0)  # kein Momentum
-    opt3 = so(x, y, p, 0.0015, 10_000, 0.5)
-    opt4 = so(x, y, p, 0.0015, 10_000, 0.8)
-    opt5 = so(x, y, p, 0.0015, 10_000, 0.35)
-    opt6 = adam(x, y, p, 10_000, 0.00015, 0.4, 0.5)
+    opt1 = train(GD(x, y, 0.0000002, 0.0), p, 10_000)
+    opt2 = train(ADAM(x, y, 0.00002, 0.9, 0.9), p, 10_000)
+    opt3 = train(ADAM(x, y, 0.00003, 0.9, 0.8), p, 10_000)
+    opt4 = train(ADAM(x, y, 0.00004, 0.9, 0.3), p, 10_000)
+    opt5 = train(ADAM(x, y, 0.00005, 0.4, 0.9), p, 10_000)
+    opt6 = train(GD(x, y, 0.0000002, 0.9), p, 10_000)
 
     ax = sur.add_subplot(231)
     ax.set_title("Alpha=0.0015, Momentum=0.6")
@@ -452,12 +462,35 @@ def DPlots(x, y, f, p1, p2):
     return ax, ax2, ax3, ax4, ax5, ax6
 
 
-ax1, ax2, ax3, ax4, ax5, ax6 = DPlots(
-    xz,
-    yz,
-    p,
-    (51.37851084786834, 12.281719132563873),
-    (51.30740546223145, 12.437053610317154),
-)
+# ax1, ax2, ax3, ax4, ax5, ax6 = DPlots(
+#     xz,
+#     yz,
+#     p,
+#     (51.37851084786834, 12.281719132563873),
+#     (51.30740546223145, 12.437053610317154),
+# )
 
-plt.show()
+# plt.show()
+
+
+# Plot the H surface and the unit circl
+X, Y, Z = surface(p1, p2, 50)
+A, B, C = surface(p1, p2, 10)
+ZP = p(X, Y)
+
+sur = plt.figure()
+arr = plt.figure()
+
+xmesh, ymesh = np.meshgrid(X, Y)
+amesh, bmesh = np.meshgrid(A, B)
+
+opt = train(ADAM(xz, yz, 0.00002, 0.8, 0.99), p, 10_000)
+opt2 = train(GD(xz, yz, 0.000000009, 0.9), p, 10_000)
+x, y, z = opt2[0], opt2[1], opt2[2]
+
+mlab.figure(size=(1080 * 2, 720 * 2), bgcolor=(1.0, 1.0, 1.0), fgcolor=(0.6, 0.1, 0.1))
+mlab.surf(X, Y, Z, opacity=0.9, colormap="ocean")
+mlab.plot3d(x, y, z)
+
+view = (90.0, 60, 5, (0, 0, 0))
+mlab.view(*view)
