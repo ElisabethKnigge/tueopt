@@ -5,10 +5,11 @@ import urllib.request
 from typing import Iterable, List, Tuple
 
 import matplotlib.pyplot as plt
-import mayavi.mlab as mlab
 import numpy as np
+import pyvista as pv
 import rasterio
 from matplotlib import cm
+from matplotlib.colors import LinearSegmentedColormap
 from scipy import interpolate
 
 # Leipzig, Völkerschlachtdenkmal
@@ -16,8 +17,8 @@ from scipy import interpolate
 # p1 = (51.37851084786834, 12.281719132563873)
 # p2 = (51.30740546223145, 12.437053610317154)
 yz, xz = (48.54113160303172, 9.057397243195163)
-p1 = (48.549728737303596, 9.008769029986254)
-p2 = (48.49221113163337, 9.10188580410421)
+p1 = (48.544567833068285, 9.016150012642221)
+p2 = (48.516836785951845, 9.128937904248804)
 
 
 def download_data() -> str:
@@ -279,7 +280,7 @@ def train(optimizer, f, beta):
 
         opt_liste[0].append(x[0])
         opt_liste[1].append(y[0])
-        opt_liste[2].append(p(x, y)[0])
+        opt_liste[2].append(p(x, y)[0] + 1)
 
         if (x >= xmax or x <= xmin) or (y >= ymax or y <= ymin):
             print("Punkt nich in Fläche duh, Iterations: ", i)
@@ -331,7 +332,7 @@ def so(x, y, f, alpha, beta, momentum):
     return opt_liste
 
 
-def Plots(x, y, f, p1, p2):
+def Plots(x, y, f, p1, p2, cmap_surface, cmap_contour, color1, color2):
     """True surface, interpolated surface and vectorfield of the gradients.
 
     Args:
@@ -344,6 +345,18 @@ def Plots(x, y, f, p1, p2):
     A, B, C = surface(p1, p2, 10)
     ZP = p(X, Y)
 
+    def register_uni_tue_cmap(name: str):
+        """Create and register Uni Tuebingen colormap under the specified name."""
+        TUred = [165 / 255, 30 / 255, 55 / 255]
+        TUgold = [180 / 255, 160 / 255, 105 / 255]
+        TUanthrazit = [50 / 255, 65 / 255, 75 / 255]  # sometimes referred to as TUdark
+        colors = np.array([TUgold, TUred, TUanthrazit])
+
+        cmap = LinearSegmentedColormap.from_list(name, colors)
+        plt.register_cmap(name, cmap)
+
+    register_uni_tue_cmap("uni_tue")
+
     sur = plt.figure()
     arr = plt.figure()
 
@@ -352,12 +365,13 @@ def Plots(x, y, f, p1, p2):
 
     # ax = sur.add_subplot(131, projection="3d")
     # ax.plot_surface(xmesh, ymesh, Z, cmap=cm.cividis, antialiased=True)
-    ax2 = sur.add_subplot(
-        projection="3d"
-    )  # wenn rest auch angezeigt werden soll, 132 einfügen
-    ax2.set_axis_off()
+
+    ax2 = sur.add_subplot(projection="3d")
+    # ax2 = sur.add_subplot(projection="3d")
+    # ax2.set_axis_off()
+
     ax2.plot_surface(
-        xmesh, ymesh, ZP, cmap=cm.Greys, antialiased=True, alpha=0.7, zorder=3
+        xmesh, ymesh, ZP, cmap=cmap_surface, antialiased=True, alpha=0.8, zorder=2.0
     )
     # axb = sur.add_subplot(133, projection="3d")
     # axb.plot_surface(xmesh, ymesh, ZB, cmap=cm.cividis, antialiased=True, alpha=0.8)
@@ -366,9 +380,9 @@ def Plots(x, y, f, p1, p2):
     opt2 = train(GD(x, y, 0.000000009, 0.9), p, 10_000)
     dx, dy, dz = opt2[0], opt2[1], opt2[2]
 
-    ax2.plot3D(opt[0], opt[1], opt[2], linewidth=2, color="darkorange")
-    ax2.plot3D(dx, dy, dz, linewidth=2, color="purple")
-    ax2.contourf(X, Y, Z, zdir="z", offset=270, cmap=cm.magma, alpha=0.67)
+    ax2.plot(opt[0], opt[1], opt[2], linewidth=2, color=color1, alpha=1, zorder=1.0)
+    ax2.plot(dx, dy, dz, linewidth=2, color=color2)
+    ax2.contourf(X, Y, Z, zdir="z", offset=270, cmap=cmap_contour, alpha=0.67)
 
     # ax.plot3D(opt2[0], opt2[1], opt2[2], linewidth=2, color="slateblue", label="MPI")
 
@@ -388,33 +402,17 @@ def Plots(x, y, f, p1, p2):
         linewidth=C * 0.003,
         arrowstyle="fancy",
         color=C,
-        cmap="plasma",
+        cmap=cmap_contour,
     )
 
     return ax2, ax3
 
 
-ax2, ax3 = Plots(xz, yz, f, p1, p2)
+# ax2, ax3 = Plots(
+#     xz, yz, f, p1, p2, "Greys", "uni_tue", (180 / 255, 160 / 255, 105 / 255), "darkred"
+# )
 
-
-# class GD:
-
-#     def init(px, py, steps):
-#         opt = GD([X, Y])
-#         x, y = px, py
-#         res = [[x], [y]]
-#         for i in range(steps):
-#             gradx = p(x, y, dx=1, dy=0)
-#             grady = p(x, y, dx=0, dy=1)
-#             stepx, stepy = opt.step(gradx, grady)
-#             x += stepx
-#             y += stepy
-#             res[0].append(x) #--> p(x, y)?
-#             res[1].append(y)
-#     # --> returns gradient!? as grad
-
-#     def steps(grad):
-#         return steps, params
+# ax3, ax4 = Plots(xz, yz, f, p1, p2, "Greys", "magma", "purple", "darkorange")
 
 
 def DPlots(x, y, f, p1, p2):
@@ -473,24 +471,64 @@ def DPlots(x, y, f, p1, p2):
 # plt.show()
 
 
-# Plot the H surface and the unit circl
-X, Y, Z = surface(p1, p2, 50)
-A, B, C = surface(p1, p2, 10)
-ZP = p(X, Y)
-
-sur = plt.figure()
-arr = plt.figure()
-
+# PyVista
 xmesh, ymesh = np.meshgrid(X, Y)
-amesh, bmesh = np.meshgrid(A, B)
+Z = p(X, Y)
+grid = pv.StructuredGrid(xmesh, ymesh, Z)
 
-opt = train(ADAM(xz, yz, 0.00002, 0.8, 0.99), p, 10_000)
-opt2 = train(GD(xz, yz, 0.000000009, 0.9), p, 10_000)
-x, y, z = opt2[0], opt2[1], opt2[2]
 
-mlab.figure(size=(1080 * 2, 720 * 2), bgcolor=(1.0, 1.0, 1.0), fgcolor=(0.6, 0.1, 0.1))
-mlab.surf(X, Y, Z, opacity=0.9, colormap="ocean")
-mlab.plot3d(x, y, z)
+def register_uni_tue_cmap(name: str):
+    """Create and register Uni Tuebingen colormap under the specified name."""
+    TUred = [165 / 255, 30 / 255, 55 / 255]
+    TUgold = [180 / 255, 160 / 255, 105 / 255]
+    TUanthrazit = [50 / 255, 65 / 255, 75 / 255]  # sometimes referred to as TUdark
+    colors = np.array([TUgold, TUred, TUanthrazit])
 
-view = (90.0, 60, 5, (0, 0, 0))
-mlab.view(*view)
+    cmap = LinearSegmentedColormap.from_list(name, colors)
+    plt.register_cmap(name, cmap)
+
+
+register_uni_tue_cmap("uni_tue")
+
+
+plotter = pv.Plotter()
+plotter.add_mesh(
+    grid,
+    scalars=grid.points[:, -1],
+    cmap="uni_tue",
+    lighting=True,
+    opacity=0.8,
+    ambient=0.4,
+    roughness=0.9,
+)
+
+opt = train(ADAM(xz, yz, 0.0002, 0.8, 0.99), p, 10_000)
+
+points = list(zip(opt[0], opt[1], opt[2]))
+
+
+def polyline_from_points(points):
+    poly = pv.PolyData()
+    poly.points = points
+    the_cell = np.arange(0, len(points), dtype=np.int_)
+    the_cell = np.insert(the_cell, 0, len(points))
+    poly.lines = the_cell
+    return poly
+
+
+polyline = polyline_from_points(points)
+polyline["scalars"] = np.arange(polyline.n_points)
+tube = polyline.tube(radius=0.0003)
+# tube.plot(smooth_shading=True)
+
+plotter.add_mesh(tube)
+
+plotter.show_grid()
+plotter.set_scale(
+    xscale=2, yscale=xmesh.ptp() / ymesh.ptp(), zscale=xmesh.ptp() / Z.ptp()
+)
+
+plotter.set_background("beige")
+
+print()
+plotter.show()
