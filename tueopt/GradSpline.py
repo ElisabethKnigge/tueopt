@@ -7,7 +7,6 @@ from typing import Iterable, List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import rasterio
 from matplotlib import cm
 from scipy import interpolate

@@ -1,3 +1,3 @@
 """Run the demo."""
 
-from tueopt import demo
+from tueopt import SimpleScript
