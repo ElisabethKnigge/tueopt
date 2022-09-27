@@ -237,7 +237,7 @@ def register_uni_tue_cmap(name: str):
     plt.register_cmap(name, cmap)
 
 
-def Plots(x, y, f, p1, p2, cmap_surface, cmap_contour, color1, color2):
+def Plots(cmap_surface, cmap_contour, color1, color2, adam_its, gd_its):
     """True surface, interpolated surface and vectorfield of the gradients.
 
     Args:
@@ -264,8 +264,8 @@ def Plots(x, y, f, p1, p2, cmap_surface, cmap_contour, color1, color2):
         xmesh, ymesh, ZP, cmap=cmap_surface, antialiased=True, alpha=0.8, zorder=2.0
     )
 
-    opt = train(ADAM(x, y, 0.00002, 0.8, 0.99), p, 2500)
-    opt2 = train(GD(x, y, 0.000000009, 0.9), p, 250)
+    opt = train(ADAM(xz, yz, 0.00002, 0.8, 0.99), p, adam_its)
+    opt2 = train(GD(xz, yz, 0.000000009, 0.9), p, gd_its)
     dx, dy, dz = opt2[0], opt2[1], opt2[2]
 
     ax_loi = loss.add_subplot(121, title="ADAM")
@@ -302,9 +302,9 @@ def Plots(x, y, f, p1, p2, cmap_surface, cmap_contour, color1, color2):
     return ax_surface, ax_streamplot, ax_loi, ax_loi2
 
 
-def DPlots(x, y, f, p1, p2):
+def DPlots():
     """Different trajectories."""
-    p = f
+    x, y = xz, yz
     X, Y, Z = surface(p1, p2, 50)
     ZP = p(X, Y)
 
@@ -312,41 +312,53 @@ def DPlots(x, y, f, p1, p2):
 
     xmesh, ymesh = np.meshgrid(X, Y)
 
-    opt1 = train(GD(x, y, 0.0000002, 0.0), p, 10_000)
-    opt2 = train(ADAM(x, y, 0.00002, 0.9, 0.9), p, 10_000)
-    opt3 = train(ADAM(x, y, 0.00003, 0.9, 0.8), p, 10_000)
-    opt4 = train(ADAM(x, y, 0.00004, 0.9, 0.3), p, 10_000)
-    opt5 = train(ADAM(x, y, 0.00005, 0.4, 0.9), p, 10_000)
-    opt6 = train(GD(x, y, 0.00000002, 0.9), p, 10_000)
+    opt1 = train(GD(x, y, 0.00000002, 0.9), p, gd_its)
+    opt2 = train(GD(x, y, 0.0000002, 0), p, gd_its)
+    opt3 = train(GD(x, y, 0.0000003, 0.5), p, gd_its)
+    opt4 = train(ADAM(x, y, 0.00004, 0.9, 0.3), p, adam_its)
+    opt5 = train(ADAM(x, y, 0.00005, 0.4, 0.9), p, adam_its)
+    opt6 = train(ADAM(x, y, 0.00002, 0.9, 0.6), p, adam_its)
 
     ax = sur.add_subplot(231)
+    ax.tick_params(labelsize=7)
+    ax.set_title(label=("Momentum", "Iterations: ", gd_its, "lr: ", 0.0000002), size=7)
     ax.contourf(xmesh, ymesh, ZP, levels=70, cmap=cm.viridis)
     ax.scatter(opt1[0], opt1[1], c=opt1[2], cmap=cm.binary, s=1.2)
 
     ax2 = sur.add_subplot(232)
+    ax2.tick_params(labelsize=7)
+    ax2.set_title(label=("Momentum", "Iterations: ", gd_its, "lr: ", 0.0000002), size=7)
     ax2.contourf(xmesh, ymesh, ZP, levels=70, cmap=cm.viridis)
     ax2.scatter(opt2[0], opt2[1], c="pink", s=1.2)
 
     ax3 = sur.add_subplot(233)
+    ax3.tick_params(labelsize=7)
+    ax3.set_title(label=("Momentum", "Iterations: ", gd_its, "lr: ", 0.0000002), size=7)
     ax3.contourf(xmesh, ymesh, ZP, levels=70, cmap=cm.viridis)
     ax3.scatter(opt3[0], opt3[1], c="blue", s=1.2)
 
     ax4 = sur.add_subplot(234)
+    ax4.tick_params(labelsize=7)
+    ax4.set_title(label=("ADAM", "Iterations: ", adam_its, "lr: ", 0.0000002), size=7)
     ax4.contourf(xmesh, ymesh, ZP, levels=70, cmap=cm.viridis)
     ax4.scatter(opt4[0], opt4[1], c="lime", s=1.2)
 
     ax5 = sur.add_subplot(235)
+    ax5.tick_params(labelsize=7)
+    ax5.set_title(label=("ADAM", "Iterations: ", adam_its, "lr: ", 0.0000002), size=7)
     ax5.contourf(xmesh, ymesh, ZP, levels=70, cmap=cm.viridis)
     ax5.scatter(opt5[0], opt5[1], c="yellow", s=1.2)
 
     ax6 = sur.add_subplot(236)
+    ax6.tick_params(labelsize=7)
+    ax6.set_title(label=("ADAM", "Iterations: ", adam_its, "lr: ", 0.0000002), size=7)
     ax6.contourf(xmesh, ymesh, ZP, levels=70, cmap=cm.viridis)
     ax6.scatter(opt6[0], opt6[1], c="red", s=1.2)
 
     return ax, ax2, ax3, ax4, ax5, ax6
 
 
-def VisPlots(cmap_surface, cmap_contour, color1, color2):
+def VisPlots(cmap_surface, cmap_contour, color1, color2, adam_its, gd_its):
     """Plotting 3D-Surface with PyVista."""
     xmesh, ymesh = np.meshgrid(X, Y)
     Z = p(X, Y)
@@ -385,8 +397,8 @@ def VisPlots(cmap_surface, cmap_contour, color1, color2):
         smooth_shading=1,
     )
 
-    opt = train(ADAM(xz, yz, 0.0002, 0.5, 0.99), p, 10_000)
-    opt2 = train(GD(xz, yz, 0.00000002, 0.6), p, 10_000)
+    opt = train(ADAM(xz, yz, 0.0002, 0.5, 0.99), p, adam_its)
+    opt2 = train(GD(xz, yz, 0.00000002, 0.6), p, gd_its)
 
     points = list(zip(opt[0], opt[1], opt[2]))
     points2 = list(zip(opt2[0], opt2[1], opt2[2]))
@@ -421,6 +433,7 @@ def VisPlots(cmap_surface, cmap_contour, color1, color2):
     return plotter
 
 
+# Coordinates.
 # starting point of the "optimizer" (choosing an elevated point makes sense :) )
 yz, xz = (48.53740847396933, 9.05109407405155)
 # p1 = north/west-border, p2 = south/east-border
@@ -437,27 +450,42 @@ p = interpolate.interp2d(XP, YP, ZP, kind="cubic")
 
 register_uni_tue_cmap("uni_tue")
 
-"Plotting."
-Matplotlib = False
-PyVista = False
-GradientDescent2D = True
+# Plotting.
+Matplotlib = True
+PyVista = True
+Trajectories = True
 
 if Matplotlib:
+    adam_its = 1000
+    gd_its = 500
+    surface_color = "Greys"  # must be a valid Matplotlib colormap
+    contour_color = "cubehelix"  # must be a valid Matplotlib colormap
+    adam_color = "darkgreen"
+    gd_color = "pink"
     ax_surface, ax_streamplot, ax_loi, ax_loi2 = Plots(
-        xz, yz, f, p1, p2, "Greys", "cubehelix", "green", "hotpink"
+        surface_color,
+        contour_color,
+        adam_color,
+        gd_color,
+        adam_its,
+        gd_its,
     )
     plt.show()
 
-if GradientDescent2D:
-    ax1, ax2, ax3, ax4, ax5, ax6 = DPlots(
-        xz,
-        yz,
-        p,
-        p1,
-        p2,
-    )
+if Trajectories:
+    adam_its = 10000
+    gd_its = 500
+    ax1, ax2, ax3, ax4, ax5, ax6 = DPlots()
     plt.show()
 
 if PyVista:
-    plotter = VisPlots("Greys", "cubehelix", "darkgreen", "darkpink")
+    adam_its = 1000
+    gd_its = 500
+    surface_color = "Greys"  # must be a valid Matplotlib colormap
+    contour_color = "cubehelix"  # must be a valid Matplotlib colormap
+    adam_color = "darkgreen"
+    gd_color = "pink"
+    plotter = VisPlots(
+        surface_color, contour_color, adam_color, gd_color, adam_its, gd_its
+    )
     plotter.show()
