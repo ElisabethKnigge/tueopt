@@ -237,7 +237,24 @@ def register_uni_tue_cmap(name: str):
     plt.register_cmap(name, cmap)
 
 
-def Plots(cmap_surface, cmap_contour, color1, color2, adam_its, gd_its):
+def Plots(
+    p,
+    XP,
+    YP,
+    ZP,
+    p1,
+    p2,
+    xz,
+    yz,
+    cmap_surface,
+    cmap_contour,
+    color1,
+    color2,
+    adam_its,
+    gd_its,
+    lr_adam,
+    lr_gd,
+):
     """True surface, interpolated surface and vectorfield of the gradients.
 
     Args:
@@ -264,8 +281,8 @@ def Plots(cmap_surface, cmap_contour, color1, color2, adam_its, gd_its):
         xmesh, ymesh, ZP, cmap=cmap_surface, antialiased=True, alpha=0.8, zorder=2.0
     )
 
-    opt = train(ADAM(xz, yz, 0.00002, 0.8, 0.99), p, adam_its)
-    opt2 = train(GD(xz, yz, 0.000000009, 0.9), p, gd_its)
+    opt = train(ADAM(xz, yz, lr_adam, 0.8, 0.99), p, adam_its)
+    opt2 = train(GD(xz, yz, lr_gd, 0.9), p, gd_its)
     dx, dy, dz = opt2[0], opt2[1], opt2[2]
 
     ax_loi = loss.add_subplot(121, title="ADAM")
@@ -277,7 +294,9 @@ def Plots(cmap_surface, cmap_contour, color1, color2, adam_its, gd_its):
         opt[0], opt[1], opt[2], linewidth=2, color=color1, alpha=1, zorder=1.0
     )
     ax_surface.plot(dx, dy, dz, linewidth=2, color=color2)
-    ax_surface.contourf(X, Y, Z, zdir="z", offset=270, cmap=cmap_contour, alpha=0.67)
+    ax_surface.contourf(
+        X, Y, Z, zdir="z", offset=np.min(Z) - 15, cmap=cmap_contour, alpha=0.67
+    )
 
     gx = p(XP, YP, dx=1, dy=0)
     gy = p(XP, YP, dx=0, dy=1)
@@ -302,9 +321,8 @@ def Plots(cmap_surface, cmap_contour, color1, color2, adam_its, gd_its):
     return ax_surface, ax_streamplot, ax_loi, ax_loi2
 
 
-def DPlots():
+def DPlots(p, x, y, p1, p2, gd_its, adam_its):
     """Different trajectories."""
-    x, y = xz, yz
     X, Y, Z = surface(p1, p2, 50)
     ZP = p(X, Y)
 
@@ -358,7 +376,21 @@ def DPlots():
     return ax, ax2, ax3, ax4, ax5, ax6
 
 
-def VisPlots(cmap_surface, cmap_contour, color1, color2, adam_its, gd_its):
+def VisPlots(
+    p,
+    xz,
+    yz,
+    X,
+    Y,
+    cmap_surface,
+    cmap_contour,
+    color1,
+    color2,
+    adam_its,
+    gd_its,
+    lr_adam,
+    lr_gd,
+):
     """Plotting 3D-Surface with PyVista."""
     xmesh, ymesh = np.meshgrid(X, Y)
     Z = p(X, Y)
@@ -397,8 +429,8 @@ def VisPlots(cmap_surface, cmap_contour, color1, color2, adam_its, gd_its):
         smooth_shading=1,
     )
 
-    opt = train(ADAM(xz, yz, 0.0002, 0.5, 0.99), p, adam_its)
-    opt2 = train(GD(xz, yz, 0.00000002, 0.6), p, gd_its)
+    opt = train(ADAM(xz, yz, lr_adam, 0.7, 0.99), p, adam_its)
+    opt2 = train(GD(xz, yz, lr_gd, 0.6), p, gd_its)
 
     points = list(zip(opt[0], opt[1], opt[2]))
     points2 = list(zip(opt2[0], opt2[1], opt2[2]))
@@ -433,59 +465,107 @@ def VisPlots(cmap_surface, cmap_contour, color1, color2, adam_its, gd_its):
     return plotter
 
 
-# Coordinates.
-# starting point of the "optimizer" (choosing an elevated point makes sense :) )
-yz, xz = (48.53740847396933, 9.05109407405155)
-# p1 = north/west-border, p2 = south/east-border
-p1 = (48.53779261272054, 9.018199965543145)
-p2 = (48.50026378163786, 9.100493830179525)
-
-f_steps = 50
-X, Y, Z = surface(p1, p2, f_steps)
-f = interpolate.interp2d(X, Y, Z, kind="cubic")
-
-p_steps = 10
-XP, YP, ZP = surface(p1, p2, p_steps)
-p = interpolate.interp2d(XP, YP, ZP, kind="cubic")
-
 register_uni_tue_cmap("uni_tue")
 
-# Plotting.
-Matplotlib = True
-PyVista = True
-Trajectories = True
 
-if Matplotlib:
-    adam_its = 1000
-    gd_its = 500
-    surface_color = "Greys"  # must be a valid Matplotlib colormap
-    contour_color = "cubehelix"  # must be a valid Matplotlib colormap
-    adam_color = "darkgreen"
-    gd_color = "pink"
-    ax_surface, ax_streamplot, ax_loi, ax_loi2 = Plots(
-        surface_color,
-        contour_color,
-        adam_color,
-        gd_color,
-        adam_its,
-        gd_its,
-    )
-    plt.show()
+class Plot:
+    """Plot a simple example."""
 
-if Trajectories:
-    adam_its = 10000
-    gd_its = 500
-    ax1, ax2, ax3, ax4, ax5, ax6 = DPlots()
-    plt.show()
+    def __init__(self, x, y, p1, p2):
+        """Set up.
 
-if PyVista:
-    adam_its = 1000
-    gd_its = 500
-    surface_color = "Greys"  # must be a valid Matplotlib colormap
-    contour_color = "cubehelix"  # must be a valid Matplotlib colormap
-    adam_color = "darkgreen"
-    gd_color = "pink"
-    plotter = VisPlots(
-        surface_color, contour_color, adam_color, gd_color, adam_its, gd_its
-    )
-    plotter.show()
+        Args:
+            x: Initial x-coordinate for Optimizer.
+            y: Initial y-coordinate for Optimizer.
+            p1: Border coordinates (north/west)
+            p2: Border coordinates (south/east).
+        """
+        self.x = x
+        self.y = y
+        self.p1 = p1
+        self.p2 = p2
+        f_steps = 50
+        X, Y, Z = surface(self.p1, self.p2, f_steps)
+        f = interpolate.interp2d(X, Y, Z, kind="cubic")
+        self.X, self.Y, self.Z = X, Y, Z
+        self.f = f
+        p_steps = 10
+        XP, YP, ZP = surface(p1, p2, p_steps)
+        p = interpolate.interp2d(XP, YP, ZP, kind="cubic")
+        self.XP, self.YP, self.ZP = XP, YP, ZP
+        self.p = p
+
+    def PMatplotlib(
+        self,
+        surface_color="Greys",
+        contour_color="magma",
+        adam_color="pink",
+        gd_color="darkorange",
+        adam_its=500,
+        gd_its=500,
+        lr_adam=0.0003,
+        lr_gd=0.0000004,
+    ):
+        """Visualization via Matplotlib."""
+        ax_surface, ax_streamplot, ax_loi, ax_loi2 = Plots(
+            self.p,
+            self.XP,
+            self.YP,
+            self.ZP,
+            self.p1,
+            self.p2,
+            self.x,
+            self.y,
+            surface_color,
+            contour_color,
+            adam_color,
+            gd_color,
+            adam_its,
+            gd_its,
+            lr_adam,
+            lr_gd,
+        )
+
+        plt.show()
+
+    def PPyvista(
+        self,
+        surface_color="Greys",
+        contour_color="magma",
+        adam_color="darkorange",
+        gd_color="hotpink",
+        adam_its=1000,
+        gd_its=500,
+        lr_adam=0.0002,
+        lr_gd=0.000000002,
+    ):
+        """Visualization via PyVista."""
+        plotter = VisPlots(
+            self.p,
+            self.x,
+            self.y,
+            self.X,
+            self.Y,
+            surface_color,
+            contour_color,
+            adam_color,
+            gd_color,
+            adam_its,
+            gd_its,
+            lr_adam,
+            lr_gd,
+        )
+
+        plotter.show()
+
+    def Trajectories(self, adam_its=1000, gd_its=500):
+        """2D Trajectories.
+
+        Args:
+            adam_its: Iterations of ADAM.
+            gd_its: Iterations of Momentum.
+        """
+        ax1, ax2, ax3, ax4, ax5, ax6 = DPlots(
+            self.p, self.x, self.y, self.p1, self.p2, gd_its, adam_its
+        )
+        plt.show()
